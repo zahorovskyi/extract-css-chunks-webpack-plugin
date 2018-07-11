@@ -2,7 +2,6 @@
 
 /test/js
 /coverage
-/dist
 
 .idea
 .eslintcache

@@ -25,7 +25,8 @@ const config = {
     new Self({
       filename: '[name].css',
       chunkFilename: '[contenthash].css',
-      hot: false
+      hot: false,
+      inject: true
     }),
 
     new webpack.NamedModulesPlugin(),

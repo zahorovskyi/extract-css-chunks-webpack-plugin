@@ -24,7 +24,7 @@ const isHMR = (compiler) => {
     }
 
     if (compiler.options.entry) {
-        const entry = typeof compiler.options.entry === 'function' ? compiler.options.entry() : compiler.options.entry;
+      const entry = typeof compiler.options.entry === 'function' ? compiler.options.entry() : compiler.options.entry;
       const entryString = JSON.stringify(entry);
       return entryString.includes('hot') || entryString.includes('hmr');
     }
@@ -125,6 +125,7 @@ class ExtractCssChunks {
     this.options = Object.assign(
       {
         filename: '[name].css',
+        inject: true,
       },
       options,
     );
@@ -352,6 +353,58 @@ class ExtractCssChunks {
                 contentHashType: NS,
               },
             );
+            if (this.options.inject) {
+              return Template.asString([
+                source,
+                '',
+                '// extract-css-chunks-webpack-plugin CSS loading',
+                `var cssChunks = ${JSON.stringify(chunkMap)};`,
+                'if(installedCssChunks[chunkId]) promises.push(installedCssChunks[chunkId]);',
+                'else if(installedCssChunks[chunkId] !== 0 && cssChunks[chunkId]) {',
+                Template.indent([
+                  'promises.push(installedCssChunks[chunkId] = new Promise(function(resolve, reject) {',
+                  Template.indent([
+                    `var href = ${linkHrefPath};`,
+                    `var fullhref = ${mainTemplate.requireFn}.p + href;`,
+                    'var existingLinkTags = document.getElementsByTagName("link");',
+                    'for(var i = 0; i < existingLinkTags.length; i++) {',
+                    Template.indent([
+                      'var tag = existingLinkTags[i];',
+                      'var dataHref = tag.getAttribute("data-href") || tag.getAttribute("href");',
+                      'if(tag.rel === "stylesheet" && (dataHref === href || dataHref === fullhref)) return resolve();',
+                    ]),
+                    '}',
+                    'var existingStyleTags = document.getElementsByTagName("style");',
+                    'for(var i = 0; i < existingStyleTags.length; i++) {',
+                    Template.indent([
+                      'var tag = existingStyleTags[i];',
+                      'var dataHref = tag.getAttribute("data-href");',
+                      'if(dataHref === href || dataHref === fullhref) return resolve();',
+                    ]),
+                    '}',
+                    'var linkTag = document.createElement("link");',
+                    'linkTag.rel = "stylesheet";',
+                    'linkTag.type = "text/css";',
+                    'linkTag.onload = resolve;',
+                    'linkTag.onerror = function(event) {',
+                    Template.indent([
+                      'var request = event && event.target && event.target.src || fullhref;',
+                      'var err = new Error("Loading CSS chunk " + chunkId + " failed.\\n(" + request + ")");',
+                      'err.request = request;',
+                      'reject(err);',
+                    ]),
+                    '};',
+                    'linkTag.href = fullhref;',
+                    'var head = document.getElementsByTagName("head")[0];',
+                    'head.appendChild(linkTag);',
+                  ]),
+                  '}).then(function() {',
+                  Template.indent(['installedCssChunks[chunkId] = 0;']),
+                  '}));',
+                ]),
+                '}',
+              ]);
+            }
             return Template.asString([
               source,
               '',
@@ -362,39 +415,7 @@ class ExtractCssChunks {
               Template.indent([
                 'promises.push(installedCssChunks[chunkId] = new Promise(function(resolve, reject) {',
                 Template.indent([
-                  `var href = ${linkHrefPath};`,
-                  `var fullhref = ${mainTemplate.requireFn}.p + href;`,
-                  'var existingLinkTags = document.getElementsByTagName("link");',
-                  'for(var i = 0; i < existingLinkTags.length; i++) {',
-                  Template.indent([
-                    'var tag = existingLinkTags[i];',
-                    'var dataHref = tag.getAttribute("data-href") || tag.getAttribute("href");',
-                    'if(tag.rel === "stylesheet" && (dataHref === href || dataHref === fullhref)) return resolve();',
-                  ]),
-                  '}',
-                  'var existingStyleTags = document.getElementsByTagName("style");',
-                  'for(var i = 0; i < existingStyleTags.length; i++) {',
-                  Template.indent([
-                    'var tag = existingStyleTags[i];',
-                    'var dataHref = tag.getAttribute("data-href");',
-                    'if(dataHref === href || dataHref === fullhref) return resolve();',
-                  ]),
-                  '}',
-                  'var linkTag = document.createElement("link");',
-                  'linkTag.rel = "stylesheet";',
-                  'linkTag.type = "text/css";',
-                  'linkTag.onload = resolve;',
-                  'linkTag.onerror = function(event) {',
-                  Template.indent([
-                    'var request = event && event.target && event.target.src || fullhref;',
-                    'var err = new Error("Loading CSS chunk " + chunkId + " failed.\\n(" + request + ")");',
-                    'err.request = request;',
-                    'reject(err);',
-                  ]),
-                  '};',
-                  'linkTag.href = fullhref;',
-                  'var head = document.getElementsByTagName("head")[0];',
-                  'head.appendChild(linkTag);',
+                  'resolve();',
                 ]),
                 '}).then(function() {',
                 Template.indent(['installedCssChunks[chunkId] = 0;']),
