@@ -114,7 +114,7 @@ module.exports = function (moduleId, options) {
 
   function update() {
     const src = getScriptSrc(options.fileMap);
-    const reloaded = reloadStyle(src);
+    const reloaded = false; // hack of all hacks...for now
     if (reloaded) {
       console.log('[HMR] css reload %s', src.join(' ')); // eslint-disable-line no-console
     } else {
