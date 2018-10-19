@@ -7,14 +7,6 @@ exports.pitch = pitch;
 
 exports.default = function () {};
 
-var _fs = require('fs');
-
-var _fs2 = _interopRequireDefault(_fs);
-
-var _path = require('path');
-
-var _path2 = _interopRequireDefault(_path);
-
 var _module = require('module');
 
 var _module2 = _interopRequireDefault(_module);
@@ -45,13 +37,12 @@ var _LimitChunkCountPlugin2 = _interopRequireDefault(_LimitChunkCountPlugin);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-const NS = _path2.default.dirname(_fs2.default.realpathSync(__filename));
+const MODULE_TYPE = 'css/extract-chunks';
+const pluginName = 'extract-css-chunks-webpack-plugin';
 
 const exec = (loaderContext, code, filename) => {
   const module = new _module2.default(filename, loaderContext);
-
-  // eslint-disable-next-line no-underscore-dangle
-  module.paths = _module2.default._nodeModulePaths(loaderContext.context);
+  module.paths = _module2.default._nodeModulePaths(loaderContext.context); // eslint-disable-line no-underscore-dangle
   module.filename = filename;
   module._compile(code, filename); // eslint-disable-line no-underscore-dangle
   return module.exports;
@@ -76,21 +67,20 @@ function pitch(request) {
     filename: childFilename,
     publicPath
   };
-  const childCompiler = this._compilation.createChildCompiler(`extract-css-chunks-webpack-plugin ${request}`, outputOptions);
+  const childCompiler = this._compilation.createChildCompiler(`${pluginName} ${request}`, outputOptions);
   new _NodeTemplatePlugin2.default(outputOptions).apply(childCompiler);
   new _LibraryTemplatePlugin2.default(null, 'commonjs2').apply(childCompiler);
   new _NodeTargetPlugin2.default().apply(childCompiler);
-  new _SingleEntryPlugin2.default(this.context, `!!${request}`, 'extract-css-chunks-webpack-plugin').apply(childCompiler);
+  new _SingleEntryPlugin2.default(this.context, `!!${request}`, pluginName).apply(childCompiler);
   new _LimitChunkCountPlugin2.default({ maxChunks: 1 }).apply(childCompiler);
-  // We set loaderContext[NS] = false to indicate we already in
+  // We set loaderContext[MODULE_TYPE] = false to indicate we already in
   // a child compiler so we don't spawn another child compilers from there.
-  childCompiler.hooks.thisCompilation.tap('extract-css-chunks-webpack-plugin loader', compilation => {
-    compilation.hooks.normalModuleLoader.tap('extract-css-chunks-webpack-plugin loader', (loaderContext, module) => {
-      loaderContext[NS] = false; // eslint-disable-line no-param-reassign
+  childCompiler.hooks.thisCompilation.tap(`${pluginName} loader`, compilation => {
+    compilation.hooks.normalModuleLoader.tap(`${pluginName} loader`, (loaderContext, module) => {
+      loaderContext[MODULE_TYPE] = false; // eslint-disable-line no-param-reassign
       if (module.request === request) {
-        module.loaders = loaders.map(loader => (
-        // eslint-disable-line no-param-reassign
-        {
+        // eslint-disable-next-line no-param-reassign
+        module.loaders = loaders.map(loader => ({
           loader: loader.path,
           options: loader.options,
           ident: loader.ident
@@ -100,7 +90,7 @@ function pitch(request) {
   });
 
   let source;
-  childCompiler.hooks.afterCompile.tap('extract-css-chunks-webpack-plugin', compilation => {
+  childCompiler.hooks.afterCompile.tap(pluginName, compilation => {
     source = compilation.assets[childFilename] && compilation.assets[childFilename].source();
 
     // Remove all chunk assets
@@ -125,7 +115,7 @@ function pitch(request) {
       this.addContextDependency(dep);
     }, this);
     if (!source) {
-      return callback(new Error('Didn\'t get a result from child compiler'));
+      return callback(new Error("Didn't get a result from child compiler"));
     }
     let text;
     let locals;
@@ -145,11 +135,11 @@ function pitch(request) {
           };
         });
       }
-      this[NS](text);
+      this[MODULE_TYPE](text);
     } catch (e) {
       return callback(e);
     }
-    let resultSource = '// extracted by extract-css-chunks-webpack-plugin';
+    let resultSource = `// extracted by ${pluginName}`;
     if (locals && typeof resultSource !== 'undefined') {
       resultSource += `\nmodule.exports = ${JSON.stringify(locals)};`;
     }
